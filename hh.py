@@ -9,6 +9,7 @@ LANGS = [
     'Java',
     'C++',
     'Python',
+    'Kotlin',
     'Delphi',
     'Pascal',
     'Javascript',
@@ -60,25 +61,40 @@ def get_all_vacancies_from_page(page):
     return response.json()
 
 
+def get_vacancy_pages(lang):
+    url = 'https://api.hh.ru/vacancies'
+    params = {
+        'text': f'(программист OR разработчик) AND {lang}',
+        'area': 1,
+        'page': 14,
+        'period': 30,
+        'per_page': 100
+    }
+    response = requests.get(url, params)
+    pprint(response.json())
+
+
 def get_vacancies(lang):
     vacancies = []
     url = 'https://api.hh.ru/vacancies'
-    for page in range(20):
-        params = {
+    params = {
             'text': f'(программист OR разработчик) AND {lang}',
             'area': 1,
             'period': 30,
-            'pages': f'{page}',
+            'page': 0,
             'per_page': 100
         }
-        print(f'fetching {lang} {page}...')
-        response = requests.get(url, params)
-        response.raise_for_status()
-        print('pages: {}'.format(response.json()['pages']))
-        print('vacancies found: {}'.format(response.json()['found']))
-        print('len of vacancies on the current page: {}'.format(len(response.json()['items'])))
-        print('len of vacancies list {}'.format(len(vacancies)))
-        vacancies += response.json()['items']
+    response = requests.get(url, params)
+    response.raise_for_status()
+    pages = response.json()['pages']
+    vacancies += response.json()['items']
+    if pages:
+        for page in range(1, pages):
+            params['page'] = page
+            print(f'fetching {lang} {page}...')
+            response = requests.get(url, params)
+            response.raise_for_status()
+            vacancies += response.json()['items']
 
     return response.json()['found'], vacancies
 
@@ -126,7 +142,6 @@ def calc_lang_avg_salary():
     for lang in LANGS:
         try:
             vacancies_found, lang_vacancies = get_vacancies(lang)
-            print('len of vacancies: {}|| languge: {}'.format(len(lang_vacancies), lang))
             lang_salaries = [salary for salary in get_salaries_list(lang_vacancies) if salary]
             lang_avg_salary[lang] = {
                 'vacancies_found': vacancies_found,
@@ -142,5 +157,6 @@ def calc_lang_avg_salary():
 if __name__ == '__main__':
     #save_to_file('test2.json', save_preproc(get_vacancies('python')))
     #pprint(get_vacancies('python'))
-    pprint(calc_lang_avg_salary())
-    #pprint(get_vacancies_count_per_lang())
+    #pprint(calc_lang_avg_salary())
+    #get_vacancy_pages('python')
+    pprint(get_vacancies_count_per_lang())
