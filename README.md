@@ -10,6 +10,13 @@ pip install -r requirements.txt
 ```
 It is recommended to use virtual environment [virtualenv/venv](https://docs.python.org/3/library/venv.html) to isolate your project
 
+### Quickstart
+
+After installation type into console:
+```
+$python avg_salary.py
+```
+
 ### Project Goals
 
 The code is written for educational purposes on online-course for web-developers [dvmn.org](https://dvmn.org/).
