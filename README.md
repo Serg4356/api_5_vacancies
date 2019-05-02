@@ -14,7 +14,7 @@ It is recommended to use virtual environment [virtualenv/venv](https://docs.pyth
 
 After installation type into console:
 ```
-$python avg_salary.py
+$python main.py
 ```
 
 ### Project Goals
