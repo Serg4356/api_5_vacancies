@@ -2,9 +2,10 @@ import requests
 import os
 from terminaltables import AsciiTable
 from dotenv import load_dotenv
+from sj import sj_auth, get_vacancies_sj, predict_rub_salary_sj
 
 
-LANGS = [
+LANGUAGES = [
     'Java',
     'C++',
     'Python',
@@ -25,45 +26,12 @@ LANGS = [
 ]
 
 
-def sj_auth(client_id, redirect_uri, login, password):
-    url = 'https://api.superjob.ru/2.0/oauth2/password'
-    params = {
-        'login': login,
-        'password': password,
-        'client_id': client_id,
-        'client_secret': secret_key
-    }
-    response = requests.get(url, params)
-    response.raise_for_status()
-    return response
-
-
-def get_vacancies_sj(access_token, secret_key, lang):
-    url = 'https://api.superjob.ru/2.0/vacancies'
-    headers = {
-        'X-Api-App-Id': secret_key,
-        'Authorization': f'Bearer {access_token}'
-    }
-    params = {
-        'keyword': lang,
-        'town': 4,
-        'count': 100,
-    }
-    vacancies = []
-    for page in range(5):
-        params['page'] = page
-        response = requests.get(url, params=params, headers=headers)
-        response.raise_for_status()
-        vacancies += response.json()['objects']
-    return response.json()['total'], vacancies
-
-
 def get_vacancies_hh(lang):
     vacancies = []
     url = 'https://api.hh.ru/vacancies'
     params = {
             'text': f'(программист OR разработчик) AND {lang}',
-            'area': 1,
+            'area': 1, # Moscow
             'period': 30,
             'page': 0,
             'per_page': 100
@@ -83,13 +51,13 @@ def get_vacancies_hh(lang):
     return response.json()['found'], vacancies
 
 
-def get_vacancies_count_per_lang_hh():
+def get_vacancies_count_per_language_hh():
     vacancies_count = {}
     url = 'https://api.hh.ru/vacancies'
-    for lang in LANGS:
+    for lang in LANGUAGES:
         params = {
             'text': f'(Программист OR Разработчик) AND {lang}',
-            'area': 1,
+            'area': 1, # Moscow
             'period': 30,
             'pages': 2,
             'per_page': 100
@@ -117,11 +85,6 @@ def predict_rub_salary_hh(vacancy):
         return predict_salary(vacancy['salary']['from'], vacancy['salary']['to'])
 
 
-def predict_rub_salary_sj(vacancy):
-    if vacancy['currency'] == 'rub':
-        return predict_salary(vacancy['payment_from'], vacancy['payment_to'])
-
-
 def predict_rub_salary(vacancy):
     if vacancy['salary'] and vacancy['salary']['currency'] == 'RUR':
         if vacancy['salary']['from'] and vacancy['salary']['to']:
@@ -139,9 +102,9 @@ def get_salaries_list(vacancies, site):
         return [predict_rub_salary_sj(vacancy) for vacancy in vacancies]
 
 
-def calc_lang_avg_salary_hh():
+def calculate_average_salary_hh():
     lang_avg_salary = {}
-    for lang in LANGS:
+    for lang in LANGUAGES:
         try:
             vacancies_found, lang_vacancies = get_vacancies_hh(lang)
             lang_salaries = [salary for salary in get_salaries_list(lang_vacancies, 'hh') if salary]
@@ -160,9 +123,38 @@ def calc_lang_avg_salary_hh():
     return lang_avg_salary
 
 
-def calc_lang_avg_salary_sj(access_token, secret_key):
+def calculate_average_salary(**kwargs):
     lang_avg_salary = {}
-    for lang in LANGS:
+    for lang in LANGUAGES:
+        try:
+            if kwargs['site'] == 'sj':
+                vacancies_found, lang_vacancies = get_vacancies_sj(kwargs['access_token'],
+                                                                   kwargs['secret_key'],
+                                                                   lang)
+            elif kwargs['site'] == 'hh':
+                vacancies_found, lang_vacancies = get_vacancies_hh(lang)
+            else:
+                print('Invalid function argument "site"')
+                return
+
+            lang_salaries = [salary for salary in get_salaries_list(lang_vacancies,
+                                                                    kwargs['site']) if salary]
+            if len(lang_salaries):
+                avg_salary = int(sum(lang_salaries)/len(lang_salaries))
+            else:
+                avg_salary = 0
+            lang_avg_salary[lang] = {
+                'vacancies_found': vacancies_found,
+                'vacancies_proccessed': len(lang_salaries),
+                'average_salary': avg_salary
+            }
+        except requests.exceptions.HTTPError:
+            print(f'Warning! Server sent bad response, while fetching {lang} vacancies')
+    return lang_avg_salary
+
+def calculate_average_salary_sj(access_token, secret_key):
+    lang_avg_salary = {}
+    for lang in LANGUAGES:
         try:
             vacancies_found, lang_vacancies = get_vacancies_sj(access_token,
                                                                secret_key,
@@ -214,9 +206,9 @@ if __name__ == '__main__':
     except requests.exceptions.HTTPError:
         print('Warning! Returned bad response')
 
-    sj_table = make_table(calc_lang_avg_salary_sj(sj_access_token,
-                                                    secret_key), 'SuperJob')
-    hh_table = make_table(calc_lang_avg_salary_hh(), 'HeadHunter')
+    sj_table = make_table(calculate_average_salary(access_token=sj_access_token,
+        secret_key=secret_key, site='sj'), 'SuperJob')
+    hh_table = make_table(calc_average_salary(site='hh'), 'HeadHunter')
     print(sj_table)
     print()
     print(hh_table)
