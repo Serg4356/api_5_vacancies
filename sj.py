@@ -36,3 +36,11 @@ def get_vacancies_sj(access_token, secret_key, language):
         vacancies += response.json()['objects']
     return response.json()['total'], vacancies
 
+
+def get_vacancies_for_languages_sj(access_token, secret_key, languages):
+    vacancies = {}
+    for language in languages:
+        vacancies[language] = get_vacancies_sj(access_token,
+                                               secret_key,
+                                               language)
+    return vacancies

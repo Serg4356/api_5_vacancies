@@ -27,3 +27,9 @@ def get_vacancies_hh(language):
 
     return response.json()['found'], vacancies
 
+
+def get_vacancies_for_languages_hh(languages):
+    vacancies = {}
+    for language in languages:
+        vacancies[language] = get_vacancies_hh(language)
+    return vacancies
